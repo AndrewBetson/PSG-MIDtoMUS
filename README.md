@@ -1,9 +1,9 @@
-Python utility for converting Guitar Hero II (and maybe I?) MIDI files to PopStar Guitar's `MUS` chart format.
+Python utility for converting Guitar Hero I and II MIDI files to PopStar Guitar's `MUS` chart format.
 
 # Usage
 Install dependencies using `pip install -r requirements.txt`
 
-Run script using `python src/main.py -i|--input your_midi_here.mid`
+Run script using `python src/main.py -i|--input your_midi_here.mid <-o|--output your_mus_here.mus>`
 
 # TODO
 - Import tempo map properly (currently just imports set_tempo events as they occur)
