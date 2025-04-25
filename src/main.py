@@ -62,6 +62,9 @@ ns_guitar_hard.instrument = EMusInstrument.LeadGuitar
 t = 0.0
 tempo = 500000
 
+delta_ticks = 0.0
+last_msg_time = 0.0
+
 # Filter down to only the relevant tracks.
 midi_track_guitar = None
 midi_track_beat = None
@@ -88,6 +91,9 @@ for msg in merge_tracks( [ midi_track_guitar, midi_track_beat ] ):
 
 	t += tick2second( msg.time, midi.ticks_per_beat, tempo )
 
+	delta_ticks = msg.time - last_msg_time
+	last_msg_time = msg.time
+
 	ne = MusNoteEvent()
 	ne.time = t
 	ne.duration = 0.0
@@ -111,9 +117,11 @@ for msg in merge_tracks( [ midi_track_guitar, midi_track_beat ] ):
 				ns_guitar_hard.add_note( ne )
 		case 'note_off':
 			if msg.note in guitar_notes_easy:
-				new_duration = t - ns_guitar_easy.notes[ -1 ].time
-				if not new_duration > 0.1:
+				# Sustains must be at least 240 ticks to be considered a sustain.
+				if delta_ticks < 240.0:
 					continue
+
+				new_duration = t - ns_guitar_easy.notes[ -1 ].time
 
 				ns_guitar_easy.notes[ -1 ].duration = new_duration
 				if ns_guitar_easy.notes[ -2 ].time == ns_guitar_easy.notes[ -1 ].time:
