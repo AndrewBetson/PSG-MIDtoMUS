@@ -95,8 +95,6 @@ def process_sustain( note: int ):
 		new_duration = t - ns_guitar_easy.notes[ -1 ].time
 
 		ns_guitar_easy.notes[ -1 ].duration = new_duration
-		if ns_guitar_easy.notes[ -2 ].time == ns_guitar_easy.notes[ -1 ].time:
-			ns_guitar_easy.notes[ -2 ].duration = new_duration
 
 		ns_len = len( ns_guitar_easy.notes )
 		if ns_len > 1:
