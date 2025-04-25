@@ -15,6 +15,7 @@ parser = argparse.ArgumentParser(
 )
 
 parser.add_argument( '-i', '--input', help='MID file to convert to MUS', required=True )
+parser.add_argument( '-o', '--output', help='File to save converted MUS to', default='music.mus' )
 args = parser.parse_args()
 
 midi_path: str = args.input
@@ -203,7 +204,7 @@ mus.add_stream( ns_guitar_easy )
 mus.add_stream( ns_guitar_medium )
 mus.add_stream( ns_guitar_hard )
 
-bw = BinWriter( Path( 'music.mus' ) )
+bw = BinWriter( Path( args.output ) )
 bw.use_lbo = True
 mus.write( bw )
 bw.close()
