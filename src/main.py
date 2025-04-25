@@ -116,9 +116,6 @@ def process_sustain( note: int ):
 
 		ns_guitar_medium.notes[ -1 ].duration = new_duration
 
-		if ns_guitar_medium.notes[ -2 ].time == ns_guitar_medium.notes[ -1 ].time:
-			ns_guitar_medium.notes[ -2 ].duration = new_duration
-
 		ns_len = len( ns_guitar_medium.notes )
 		if ns_len > 1:
 			if ns_guitar_medium.notes[ -2 ].time == ns_guitar_medium.notes[ -1 ].time:
