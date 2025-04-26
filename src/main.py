@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: © Andrew Betson
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-import argparse, enum, io, os, struct, sys, time
+import argparse, math, os
 from pathlib import Path
 from mido import *
 
@@ -60,11 +60,9 @@ ns_guitar_hard = MusNoteStream()
 ns_guitar_hard.difficulty = EMusDifficulty.Hard
 ns_guitar_hard.instrument = EMusInstrument.LeadGuitar
 
-t = 0.0
+current_time = 0.0
 tempo = 500000
-
-delta_ticks = 0.0
-last_msg_time = 0.0
+min_sustain_time = 0.0
 
 # Filter down to only the relevant tracks.
 midi_track_guitar = None
@@ -80,66 +78,64 @@ if midi_track_guitar == None:
 
 def process_sustain( note: int ):
 	if note in guitar_notes_easy:
-		# Sustains must be at least 240 ticks to be considered a sustain.
-		if delta_ticks < 240.0:
+		new_duration = current_time - ns_guitar_easy.notes[ -1 ].time
+		if new_duration < min_sustain_time:
 			return
-
-		new_duration = t - ns_guitar_easy.notes[ -1 ].time
 
 		ns_guitar_easy.notes[ -1 ].duration = new_duration
 
 		ns_len = len( ns_guitar_easy.notes )
 		if ns_len > 1:
-			if ns_guitar_easy.notes[ -2 ].time == ns_guitar_easy.notes[ -1 ].time:
+			if math.isclose( ns_guitar_easy.notes[ -2 ].time, ns_guitar_easy.notes[ -1 ].time ):
 				ns_guitar_easy.notes[ -2 ].duration = new_duration
 		if ns_len > 2:
-			if ns_guitar_easy.notes[ -3 ].time == ns_guitar_easy.notes[ -1 ].time:
+			if math.isclose( ns_guitar_easy.notes[ -3 ].time, ns_guitar_easy.notes[ -1 ].time ):
 				ns_guitar_easy.notes[ -3 ].duration = new_duration
 		if ns_len > 3:
-			if ns_guitar_easy.notes[ -4 ].time == ns_guitar_easy.notes[ -1 ].time:
+			if math.isclose( ns_guitar_easy.notes[ -4 ].time, ns_guitar_easy.notes[ -1 ].time ):
 				ns_guitar_easy.notes[ -4 ].duration = new_duration
 		if ns_len > 4:
-			if ns_guitar_easy.notes[ -5 ].time == ns_guitar_easy.notes[ -1 ].time:
+			if math.isclose( ns_guitar_easy.notes[ -5 ].time, ns_guitar_easy.notes[ -1 ].time ):
 				ns_guitar_easy.notes[ -5 ].duration = new_duration
-	elif msg.note in guitar_notes_medium:
-		new_duration = t - ns_guitar_medium.notes[ -1 ].time
-		if not new_duration > 0.1:
+	elif note in guitar_notes_medium:
+		new_duration = current_time - ns_guitar_medium.notes[ -1 ].time
+		if new_duration < min_sustain_time:
 			return
 
 		ns_guitar_medium.notes[ -1 ].duration = new_duration
 
 		ns_len = len( ns_guitar_medium.notes )
 		if ns_len > 1:
-			if ns_guitar_medium.notes[ -2 ].time == ns_guitar_medium.notes[ -1 ].time:
+			if math.isclose( ns_guitar_medium.notes[ -2 ].time, ns_guitar_medium.notes[ -1 ].time ):
 				ns_guitar_medium.notes[ -2 ].duration = new_duration
 		if ns_len > 2:
-			if ns_guitar_medium.notes[ -3 ].time == ns_guitar_medium.notes[ -1 ].time:
+			if math.isclose( ns_guitar_medium.notes[ -3 ].time, ns_guitar_medium.notes[ -1 ].time ):
 				ns_guitar_medium.notes[ -3 ].duration = new_duration
 		if ns_len > 3:
-			if ns_guitar_medium.notes[ -4 ].time == ns_guitar_medium.notes[ -1 ].time:
+			if math.isclose( ns_guitar_medium.notes[ -4 ].time, ns_guitar_medium.notes[ -1 ].time ):
 				ns_guitar_medium.notes[ -4 ].duration = new_duration
 		if ns_len > 4:
-			if ns_guitar_medium.notes[ -5 ].time == ns_guitar_medium.notes[ -1 ].time:
+			if math.isclose( ns_guitar_medium.notes[ -5 ].time, ns_guitar_medium.notes[ -1 ].time ):
 				ns_guitar_medium.notes[ -5 ].duration = new_duration
-	elif msg.note in guitar_notes_expert:
-		new_duration = t - ns_guitar_hard.notes[ -1 ].time
-		if not new_duration > 0.1:
+	elif note in guitar_notes_expert:
+		new_duration = current_time - ns_guitar_hard.notes[ -1 ].time
+		if new_duration < min_sustain_time:
 			return
 
 		ns_guitar_hard.notes[ -1 ].duration = new_duration
 
 		ns_len = len( ns_guitar_hard.notes )
 		if ns_len > 1:
-			if ns_guitar_hard.notes[ -2 ].time == ns_guitar_hard.notes[ -1 ].time:
+			if math.isclose( ns_guitar_hard.notes[ -2 ].time, ns_guitar_hard.notes[ -1 ].time ):
 				ns_guitar_hard.notes[ -2 ].duration = new_duration
 		if ns_len > 2:
-			if ns_guitar_hard.notes[ -3 ].time == ns_guitar_hard.notes[ -1 ].time:
+			if math.isclose( ns_guitar_hard.notes[ -3 ].time, ns_guitar_hard.notes[ -1 ].time ):
 				ns_guitar_hard.notes[ -3 ].duration = new_duration
 		if ns_len > 3:
-			if ns_guitar_hard.notes[ -4 ].time == ns_guitar_hard.notes[ -1 ].time:
+			if math.isclose( ns_guitar_hard.notes[ -4 ].time, ns_guitar_hard.notes[ -1 ].time ):
 				ns_guitar_hard.notes[ -4 ].duration = new_duration
 		if ns_len > 4:
-			if ns_guitar_hard.notes[ -5 ].time == ns_guitar_hard.notes[ -1 ].time:
+			if math.isclose( ns_guitar_hard.notes[ -5 ].time, ns_guitar_hard.notes[ -1 ].time ):
 				ns_guitar_hard.notes[ -5 ].duration = new_duration
 	else:
 		return
@@ -148,13 +144,11 @@ for msg in merge_tracks( [ midi_track_guitar, midi_track_beat ] ):
 	if msg.type == 'set_tempo':
 		tempo = msg.tempo
 
-	t += tick2second( msg.time, midi.ticks_per_beat, tempo )
-
-	delta_ticks = msg.time - last_msg_time
-	last_msg_time = msg.time
+	current_time += tick2second( msg.time, midi.ticks_per_beat, tempo )
+	min_sustain_time = tick2second( 240, midi.ticks_per_beat, tempo )
 
 	ne = MusNoteEvent()
-	ne.time = t
+	ne.time = current_time
 	ne.duration = 0.0
 	ne.note = 0
 	ne.flags = EMusNoteState.Ready
@@ -180,6 +174,9 @@ for msg in merge_tracks( [ midi_track_guitar, midi_track_beat ] ):
 			elif msg.note in guitar_notes_expert:
 				ns_guitar_hard.add_note( ne )
 		case 'note_off':
+			if not msg.note in guitar_notes_easy and not msg.note in guitar_notes_medium and not msg.note in guitar_notes_expert:
+				continue
+
 			process_sustain( msg.note )
 		case 'end_of_track':
 			ne.flags = EMusSection.Done
