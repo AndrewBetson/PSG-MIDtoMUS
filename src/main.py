@@ -68,23 +68,15 @@ last_msg_time = 0.0
 
 # Filter down to only the relevant tracks.
 midi_track_guitar = None
-midi_track_beat = None
+midi_track_beat = midi.tracks[ 0 ]
 for track in midi.tracks:
 	if track.name == 'PART GUITAR':
 		midi_track_guitar = track
 	elif track.name == 'T1 GEMS': # this is what GH1 calls it
 		midi_track_guitar = track
-	elif track.name == midi_name:
-		midi_track_beat = track
-
-	if not midi_track_guitar == None and not midi_track_beat == None:
-		break
 
 if midi_track_guitar == None:
 	raise Exception( 'Failed to find tracks "PART GUITAR" or "T1 GEMS" in provided MIDI file.' )
-
-if midi_track_beat == None:
-	raise Exception( f'Failed to find track "{midi_name}" in provided MIDI file.' )
 
 def process_sustain( note: int ):
 	if note in guitar_notes_easy:
