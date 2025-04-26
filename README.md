@@ -1,4 +1,4 @@
-Python utility for converting Guitar Hero I and II MIDI files to PopStar Guitar's `MUS` chart format.
+Python utility for converting Guitar Hero (I/II/80's), Rock Band (probably all of them?) and Clone Hero/YARG MIDI files to PopStar Guitar's `MUS` chart format.
 
 # Usage
 Install dependencies using `pip install -r requirements.txt`
@@ -7,7 +7,7 @@ Run script using `python src/main.py -i|--input your_midi_here.mid <-o|--output 
 
 # TODO
 - Import tempo map properly (currently just imports set_tempo events as they occur)
-- Convert GHII sections to PSG sections
+- Convert sections to PSG sections
 - Add utilities for automagically converting entire songs (chart *and* audio) to `DATA.TC` and `SONG.RAW` with one command.
 - Clean up code
 
