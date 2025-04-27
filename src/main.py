@@ -161,7 +161,7 @@ for msg in merge_tracks( [ midi_track_guitar, midi_track_beat ] ):
 				process_sustain( msg.note )
 				continue
 
-			ne.note = gh_note_to_psg_note( msg.note )
+			ne.note = midi_note_to_psg_note( msg.note )
 
 			if msg.note in guitar_notes_easy:
 				ns_guitar_easy.add_note( ne )
