@@ -11,7 +11,7 @@ from mus import *
 
 parser = argparse.ArgumentParser(
 	prog='MIDtoMUS',
-	description='Converts GH1/GH2-style MID files to PopStar Guitar\'s MUS format.'
+	description='Converts Harmonix-style (GH/RB/CH/YARG) MIDI files to PopStar Guitar\'s MUS format.'
 )
 
 parser.add_argument( '-i', '--input', help='MID file to convert to MUS', required=True )
