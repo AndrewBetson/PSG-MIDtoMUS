@@ -19,15 +19,11 @@ parser.add_argument( '-o', '--output', help='File to save converted MUS to', def
 args = parser.parse_args()
 
 midi_path: str = args.input
-midi_name: str = ''
 if not midi_path.endswith( '.mid' ) and not midi_path.endswith( '.midi' ):
-	midi_name = os.path.split( midi_path )[ 1 ]
-	midi_path += '.mid'
-else:
-	midi_name = os.path.split( os.path.splitext( midi_path )[ 0 ] )[ 1 ]
+	raise Exception( f'MIDI input doesn\'t end with .mid or .midi, please add the extension to the input.' )
 
 if not os.path.exists( midi_path ):
-	raise FileNotFoundError( f'Failed to locate provided MIDI file "{midi_path}"!' )
+	raise FileNotFoundError( f'Failed to locate provided MIDI file "{midi_path}".' )
 
 mus = MusFile()
 midi = MidiFile( midi_path )
