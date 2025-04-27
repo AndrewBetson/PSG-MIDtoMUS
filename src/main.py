@@ -61,16 +61,22 @@ tempo = 500000
 min_sustain_time = 0.0
 
 # Filter down to only the relevant tracks.
-midi_track_guitar = None
 midi_track_beat = midi.tracks[ 0 ]
+midi_track_guitar = None
+midi_track_events = None
 for track in midi.tracks:
 	if track.name == 'PART GUITAR':
 		midi_track_guitar = track
 	elif track.name == 'T1 GEMS': # this is what GH1 calls it
 		midi_track_guitar = track
+	elif track.name == 'EVENTS':
+		midi_track_events = track
 
 if midi_track_guitar == None:
-	raise Exception( 'Failed to find tracks "PART GUITAR" or "T1 GEMS" in provided MIDI file.' )
+	raise Exception( 'Failed to find track "PART GUITAR" or "T1 GEMS" in provided MIDI file.' )
+
+if midi_track_events == None:
+	raise Exception( 'Failed to find track "EVENTS" in provided MIDI file.' )
 
 def process_sustain( note: int ):
 	if note in guitar_notes_easy:
@@ -136,7 +142,7 @@ def process_sustain( note: int ):
 	else:
 		return
 
-for msg in merge_tracks( [ midi_track_guitar, midi_track_beat ] ):
+for msg in merge_tracks( [ midi_track_beat, midi_track_guitar, midi_track_events ] ):
 	if msg.type == 'set_tempo':
 		tempo = msg.tempo
 
@@ -174,9 +180,14 @@ for msg in merge_tracks( [ midi_track_guitar, midi_track_beat ] ):
 				continue
 
 			process_sustain( msg.note )
+		case 'text':
+			if midi_section_to_psg_section( msg.text, ne ):
+				ns_sections.add_note( ne )
 		case 'end_of_track':
-			ne.flags = EMusSection.Done
-			ns_sections.add_note( ne )
+			# Ensure we have a Done section.
+			if ns_sections.notes[ -1 ].flags != EMusSection.Done:
+				ne.flags = EMusSection.Done
+				ns_sections.add_note( ne )
 
 mus.add_stream( ns_sections )
 mus.add_stream( ns_tempo )

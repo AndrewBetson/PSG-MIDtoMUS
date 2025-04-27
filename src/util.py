@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: © Andrew Betson
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from mus import EMusNoteColor
+from mus import EMusNoteColor, EMusSection, MusNoteEvent
 
 # Valid guitar notes, excluding SP, P1/2 sections, and hard difficulty notes.
 guitar_notes = [
@@ -31,5 +31,45 @@ def midi_note_to_psg_note( note: int ) -> EMusNoteColor:
 		return EMusNoteColor.Blue
 	elif note in guitar_notes_orange:
 		return EMusNoteColor.Orange
-	else:
-		raise Exception( f'Unexpected note value {note} passed to gh_note_to_psg_note!' )
+
+def midi_section_to_psg_section( section: str, ne: MusNoteEvent ) -> bool:
+	section = section.lower()
+
+	match section:
+		case 'chorus':
+			ne.flags = EMusSection.Chorus
+			return True
+		case 'verse':
+			ne.flags = EMusSection.Verse
+			return True
+		case 'solo':
+			ne.flags = EMusSection.Solo
+			return True
+		case 'end':
+			ne.flags = EMusSection.Done
+			return True
+
+	if 'section ' in section:
+		if 'intro' in section:
+			ne.flags = EMusSection.Intro
+			return True
+		elif 'prechorus' in section or 'pre-chorus' in section:
+			ne.flags = EMusSection.PreChorus
+			return True
+		elif 'chorus' in section:
+			ne.flags = EMusSection.Chorus
+			return True
+		if 'verse' in section:
+			ne.flags = EMusSection.Verse
+			return True
+		elif 'bridge' in section:
+			ne.flags = EMusSection.Bridge
+			return True
+		elif 'solo' in section:
+			ne.flags = EMusSection.Solo
+			return True
+		elif 'outro' in section:
+			ne.flags = EMusSection.Outro
+			return True
+
+	return False
