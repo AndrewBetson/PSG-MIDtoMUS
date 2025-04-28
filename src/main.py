@@ -159,7 +159,7 @@ for msg in merge_tracks( [ midi_track_beat, midi_track_guitar, midi_track_events
 		case 'set_tempo':
 			ns_tempo.add_note( ne )
 		case 'note_on':
-			if not msg.note in guitar_notes_easy and not msg.note in guitar_notes_medium and not msg.note in guitar_notes_expert:
+			if not is_valid_note( msg.note ):
 				continue
 
 			# note_on events with 0 velocity are basically note_off events.
@@ -176,7 +176,7 @@ for msg in merge_tracks( [ midi_track_beat, midi_track_guitar, midi_track_events
 			elif msg.note in guitar_notes_expert:
 				ns_guitar_hard.add_note( ne )
 		case 'note_off':
-			if not msg.note in guitar_notes_easy and not msg.note in guitar_notes_medium and not msg.note in guitar_notes_expert:
+			if not is_valid_note( msg.note ):
 				continue
 
 			process_sustain( msg.note )

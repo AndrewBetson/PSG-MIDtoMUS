@@ -20,6 +20,9 @@ guitar_notes_yellow = [ guitar_notes_easy[ 2 ], guitar_notes_medium[ 2 ], guitar
 guitar_notes_blue = [ guitar_notes_easy[ 3 ], guitar_notes_medium[ 3 ], guitar_notes_expert[ 3 ] ]
 guitar_notes_orange = [ guitar_notes_easy[ 4 ], guitar_notes_medium[ 4 ], guitar_notes_expert[ 4 ] ]
 
+def is_valid_note( note: int ) -> bool:
+	return note in guitar_notes_easy or note in guitar_notes_medium or note in guitar_notes_expert
+
 def midi_note_to_psg_note( note: int ) -> EMusNoteColor:
 	if note in guitar_notes_green:
 		return EMusNoteColor.Green
