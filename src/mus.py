@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: © Andrew Betson
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-import argparse, enum, io, os, struct, sys, time
+import enum
 from enum import IntEnum
 
 from binio import BinWriter
