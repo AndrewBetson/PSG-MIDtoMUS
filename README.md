@@ -7,7 +7,7 @@ If running from source, install dependencies using `pip install -r requirements.
 `python src/main.py` OR `MIDtoMUS.exe` `-m/--mode convert -i/--input your_input_here.mid/mus [-o/--output output/folder/]`
 
 ### Build a song folder
-`python src/main.py` OR `MIDtoMUS.exe` `-m/--mode build_song -i/--input folder/containing/song/data/ [-o/--output output/folder/]`
+`python src/main.py` OR `MIDtoMUS.exe` `-m/--mode build -i/--input folder/containing/song/data/ [-o/--output output/folder/]`
 
 Song folder *must* contain `music.mus`, `back.wav` and `guitar_mono.wav`.
 
