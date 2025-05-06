@@ -3,16 +3,15 @@
 
 import argparse, os, subprocess, sys
 from pathlib import Path
-from mido import *
 
-from binio import BinWriter
+from binio import *
 from mus import MusFile
 
 parser = argparse.ArgumentParser(
 	prog='MIDtoMUS',
-	description='Converts Harmonix-style (GH/RB/CH/YARG) MIDI files to PopStar Guitar\'s MUS format.'
+	description='Converts Harmonix-style (GH/RB/CH/YARG) MIDI files to PopStar Guitar\'s MUS format, and vice-versa.'
 )
-parser.add_argument( '-m', '--mode', help='Whether to convert a MID or build a song folder.', required=True, choices=[ 'convert_mid', 'build_song' ] )
+parser.add_argument( '-m', '--mode', help='Whether to convert or build a song.', required=True, choices=[ 'convert', 'build' ] )
 parser.add_argument( '-i', '--input', help='File or folder to convert or build.', required=True, type=Path )
 parser.add_argument( '-o', '--output', help='Path to save output to.', default='./', type=Path )
 args = parser.parse_args()
@@ -26,14 +25,23 @@ if not Path.exists( args.output ):
 	os.makedirs( args.output )
 
 match args.mode:
-	case 'convert_mid':
-		mus = MusFile.from_midi( args.input )
+	case 'convert':
+		if args.input.suffix == '.mid':
+			mus = MusFile.from_midi( args.input )
 
-		bw = BinWriter( Path( Path.joinpath( args.output, 'music.mus' ) ) )
-		bw.use_lbo = True
-		mus.write( bw )
-		bw.close()
-	case 'build_song':
+			bw = BinWriter( Path.joinpath( args.output, 'music.mus' ) )
+			bw.use_lbo = True
+			mus.write( bw )
+			bw.close()
+		elif args.input.suffix == '.mus':
+			mus_br = BinReader.from_path( args.input )
+			mus_br.use_lbo = True
+
+			mus = MusFile.from_reader( mus_br )
+
+			midi = mus.to_midi( args.input.stem.lower() )
+			midi.save( Path.joinpath( args.output, 'notes.mid' ) )
+	case 'build':
 		mus_path = Path.joinpath( args.input, 'music.mus' )
 		back_wav_path = Path.joinpath( args.input, 'back.wav' )
 		guitar_mono_wav_path = Path.joinpath( args.input, 'guitar_mono.wav' )

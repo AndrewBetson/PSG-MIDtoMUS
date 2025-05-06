@@ -5,7 +5,7 @@ import enum, math, os
 from enum import IntEnum
 from mido import *
 
-from binio import BinWriter
+from binio import *
 
 @enum.unique
 class EMusNoteColor( IntEnum ):
@@ -65,6 +65,17 @@ class MusNoteEvent:
 	note: int = EMusNoteColor.Green
 	flags: int = EMusNoteState.Ready
 
+	@classmethod
+	def from_reader( cls, br: BinReader ):
+		o = cls()
+
+		o.time = br.f32()
+		o.duration = br.f32()
+		o.note = br.u16()
+		o.flags = br.u16()
+
+		return o
+
 	def write( self, bw: BinWriter ):
 		bw.f32( self.time )
 		bw.f32( self.duration )
@@ -81,6 +92,19 @@ class MusNoteStream:
 		self.difficulty = EMusDifficulty.Easy
 		self.notes = []
 
+	@classmethod
+	def from_reader( cls, br: BinReader ):
+		o = cls()
+
+		o.instrument = br.u16()
+		o.difficulty = br.u16()
+		num_notes = br.u16()
+		br.u16() # Padding
+		for i in range( num_notes ):
+			o.notes.append( MusNoteEvent.from_reader( br ) )
+
+		return o
+
 	def add_note( self, new_note: MusNoteEvent ):
 		self.notes.append( new_note )
 
@@ -93,11 +117,43 @@ class MusNoteStream:
 		for note in self.notes:
 			note.write( bw )
 
+class MusToMidiNote:
+	event: MusNoteEvent
+	instrument: EMusInstrument
+	difficulty: EMusDifficulty
+	delta: float
+	defer_note_off: bool
+
+	def __init__( self ):
+		self.event = MusNoteEvent()
+		self.instrument = EMusInstrument.LeadGuitar
+		self.difficulty = EMusDifficulty.Easy
+		self.delta = 0.0
+		self.defer_note_off = False
+
 class MusFile:
 	streams: list[ MusNoteStream ]
 
 	def __init__( self ):
 		self.streams = []
+
+	@classmethod
+	def from_reader( cls, br: BinReader ):
+		o = cls()
+
+		use_lbo = br.use_lbo
+		br.use_lbo = False
+		magic = br.u32()
+		br.use_lbo = use_lbo
+
+		if magic != 0x534D5553: # "SMUS"
+			raise Exception( f'Provided MUS file has incorrect magic {hex( magic )}' )
+
+		num_streams = br.u16()
+		for i in range( num_streams ):
+			o.streams.append( MusNoteStream.from_reader( br ) )
+
+		return o
 
 	@classmethod
 	def from_midi( cls, midi_path: str ):
@@ -216,6 +272,122 @@ class MusFile:
 
 		return o
 
+	def to_midi( self, midi_name: str ) -> MidiFile:
+		o = MidiFile()
+		o.ticks_per_beat = 480
+
+		name_track = MidiTrack()
+		name_track.name = midi_name
+		name_track.append( MetaMessage( 'time_signature',
+			numerator=4,
+			denominator=4,
+			clocks_per_click=24,
+			notated_32nd_notes_per_beat=8,
+			time=0
+		) )
+
+		part_guitar = MidiTrack()
+		part_guitar.name = 'PART GUITAR'
+
+		events = MidiTrack()
+		events.name = 'EVENTS'
+
+		merged_streams = []
+		tempo_stream = None
+		for stream in self.streams:
+			if stream.instrument == EMusInstrument.LeadGuitar and not stream.difficulty == EMusDifficulty.Hard:
+				continue
+
+			if stream.instrument == EMusInstrument.Tempo:
+				tempo_stream = stream
+
+			last_note = MusToMidiNote()
+			last_note.event.time = 0.0
+			last_note.event.duration = 0.0
+			for i, ne in enumerate( stream.notes ):
+				new_note = MusToMidiNote()
+				new_note.event = ne
+				new_note.instrument = stream.instrument
+				new_note.difficulty = stream.difficulty
+
+				if not i+1 >= len( stream.notes ):
+					if stream.notes[ i+1 ].time == ne.time:
+						new_note.defer_note_off = True
+
+				if not ne.time == last_note.event.time:
+					new_note.delta = ne.time - ( last_note.event.time + last_note.event.duration )
+				else:
+					new_note.delta = 0.0
+
+				merged_streams.append( new_note )
+
+				last_note = new_note
+
+		sorted_streams = sorted( merged_streams, key=lambda x: x.event.time )
+
+		average_bpm = get_average_bpm( tempo_stream )
+		tempo = bpm2tempo( math.ceil( average_bpm ) )
+
+		name_track.append( MetaMessage( 'set_tempo',
+			tempo=tempo,
+			time=0
+		) )
+
+		deferred_note_off_msgs = []
+		for i, ne in enumerate( sorted_streams ):
+			time = ne.event.time
+			duration = ne.event.duration
+			note = ne.event.note
+			flags = ne.event.flags
+
+			delta = second2tick( ne.delta, 480, tempo )
+			if ne.instrument == EMusInstrument.Tempo:
+				next_beat_time = 0.0
+				for j in range( i+1, len( sorted_streams ) ):
+					if sorted_streams[ j ].instrument == EMusInstrument.Tempo:
+						next_beat_time = sorted_streams[ j ].event.time
+						break
+				interval = next_beat_time - ne.event.time
+				if not interval > 0.1:
+					continue
+
+				tempo = bpm2tempo( math.ceil( 60.0 / interval ) )
+				name_track.append( MetaMessage( 'set_tempo',
+					tempo=tempo,
+					time=delta
+				) )
+			elif ne.instrument == EMusInstrument.LeadGuitar:
+				midi_note = psg_note_to_midi_note( note, ne.difficulty )
+				part_guitar.append( Message( 'note_on',
+					note=midi_note,
+					velocity=100,
+					time=delta
+				) )
+
+				if ne.defer_note_off:
+					deferred_note_off_msgs.append( Message( 'note_on',
+						note=midi_note,
+						velocity=0,
+						time=0
+					) )
+					continue
+				else:
+					part_guitar.append( Message( 'note_on',
+						note=midi_note,
+						velocity=0,
+						time=second2tick( duration, 480, tempo )
+					) )
+
+				if len( deferred_note_off_msgs ) > 0:
+					part_guitar.extend( deferred_note_off_msgs )
+					deferred_note_off_msgs.clear()
+
+		o.tracks.append( name_track )
+		o.tracks.append( part_guitar )
+		o.tracks.append( events )
+
+		return o
+
 	def add_stream( self, new_stream: MusNoteStream ):
 		self.streams.append( new_stream )
 
@@ -231,22 +403,24 @@ class MusFile:
 		for stream in self.streams:
 			stream.write( bw )
 
-# Valid guitar notes, excluding SP, P1/2 sections, and hard difficulty notes.
+# Valid guitar notes, excluding SP, P1/2 sections.
 guitar_notes = [
 	[ 60, 61, 62, 63, 64 ], # Easy GRYBO
 	[ 72, 73, 74, 75, 76 ], # Medium GRYBO
+	[ 84, 85, 86, 87, 88 ], # Hard GRYBO
 	[ 96, 97, 98, 99, 100 ] # Expert GRYBO
 ]
 
 guitar_notes_easy = guitar_notes[ 0 ]
 guitar_notes_medium = guitar_notes[ 1 ]
-guitar_notes_expert = guitar_notes[ 2 ]
+guitar_notes_hard = guitar_notes[ 2 ]
+guitar_notes_expert = guitar_notes[ 3 ]
 
-guitar_notes_green = [ guitar_notes_easy[ 0 ], guitar_notes_medium[ 0 ], guitar_notes_expert[ 0 ] ]
-guitar_notes_red = [ guitar_notes_easy[ 1 ], guitar_notes_medium[ 1 ], guitar_notes_expert[ 1 ] ]
-guitar_notes_yellow = [ guitar_notes_easy[ 2 ], guitar_notes_medium[ 2 ], guitar_notes_expert[ 2 ] ]
-guitar_notes_blue = [ guitar_notes_easy[ 3 ], guitar_notes_medium[ 3 ], guitar_notes_expert[ 3 ] ]
-guitar_notes_orange = [ guitar_notes_easy[ 4 ], guitar_notes_medium[ 4 ], guitar_notes_expert[ 4 ] ]
+guitar_notes_green = [ guitar_notes_easy[ 0 ], guitar_notes_medium[ 0 ], guitar_notes_hard[ 0 ], guitar_notes_expert[ 0 ] ]
+guitar_notes_red = [ guitar_notes_easy[ 1 ], guitar_notes_medium[ 1 ], guitar_notes_hard[ 1 ], guitar_notes_expert[ 1 ] ]
+guitar_notes_yellow = [ guitar_notes_easy[ 2 ], guitar_notes_medium[ 2 ], guitar_notes_hard[ 2 ], guitar_notes_expert[ 2 ] ]
+guitar_notes_blue = [ guitar_notes_easy[ 3 ], guitar_notes_medium[ 3 ], guitar_notes_hard[ 3 ], guitar_notes_expert[ 3 ] ]
+guitar_notes_orange = [ guitar_notes_easy[ 4 ], guitar_notes_medium[ 4 ], guitar_notes_hard[ 4 ], guitar_notes_expert[ 4 ] ]
 
 def is_valid_note( note: int ) -> bool:
 	return note in guitar_notes_easy or note in guitar_notes_medium or note in guitar_notes_expert
@@ -325,3 +499,27 @@ def process_sustain( note: int, current_time: float, min_sustain_time: float, ns
 	if ns_len > 4:
 		if math.isclose( ns.notes[ -5 ].time, ns.notes[ -1 ].time ):
 			ns.notes[ -5 ].duration = new_duration
+
+def psg_note_to_midi_note( note: EMusNoteColor, difficulty: EMusDifficulty, expert_hack: bool = False ) -> int:
+	match difficulty:
+		case EMusDifficulty.Easy:
+			return guitar_notes_easy[ note ]
+		case EMusDifficulty.Medium:
+			return guitar_notes_medium[ note ]
+		case EMusDifficulty.Hard:
+			if expert_hack:
+				return guitar_notes_expert[ note ]
+			else:
+				return guitar_notes_hard[ note ]
+
+def get_average_bpm( tempo_stream: MusNoteStream ) -> int:
+	accum_time = 0.0
+	i = 0
+	measures = 0
+	for ne in tempo_stream.notes:
+		accum_time += ne.time
+		if i % 4 == 0 and not i == 0:
+			measures += 1
+		i += 1
+
+	return ( 4 * measures * 60 ) / tempo_stream.notes[ -1 ].time
